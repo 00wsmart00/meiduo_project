@@ -80,7 +80,8 @@ class SMSCodeView(View):
         pl.execute()
         # 9.发送验证码
         # 短信模板
-        # CCP().send_template_sms(mobile, [sms_code, 5], 1)
+        from celery_tasks.sms_code.tasks import send_sms_code
+        send_sms_code.delay(mobile, sms_code)
 
         # 10.响应结果
         return http.JsonResponse({

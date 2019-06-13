@@ -3,6 +3,7 @@ var vm = new Vue({
     // 修改Vue变量的读取语法，避免和django模板语法冲突
     delimiters: ['[[', ']]'],
     data: {
+
         host,
         f1_tab: 1, // 1F 标签页控制
         f2_tab: 1, // 2F 标签页控制
@@ -15,6 +16,8 @@ var vm = new Vue({
         this.get_carts();
     },
     methods: {
+
+
         // 获取购物车数据
         get_carts(){
             var url = this.host+'/carts/simple/';
