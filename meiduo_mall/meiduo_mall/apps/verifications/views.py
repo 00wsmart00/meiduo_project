@@ -25,6 +25,13 @@ class SMSCodeView(View):
         :param mobile: 手机号
         :return: Json
         """
+
+        # 3.创建连接到redis的对象
+        redis_connection = get_redis_connection('verify_code')
+        send_flag = redis_connection.get('send_flag_%s' % mobile)
+        if send_flag:
+            return http.JsonResponse({'code': RETCODE.THROTTLINGERR,
+                                      'errmsg': '发送短信过于频繁'})
         # 1.接受参数
         image_code_client = request.GET.get('image_code')
         uuid = request.GET.get('image_code_id')
@@ -36,11 +43,11 @@ class SMSCodeView(View):
                 'errmsg': '缺少必传参数'
             })
         # 3.创建连接到redis的对象
-        redis_connection = get_redis_connection('verify_code')
-        send_flag = redis_connection.get('send_flag_%s' % mobile)
-        if send_flag:
-            return http.JsonResponse({'code': RETCODE.THROTTLINGERR,
-                                      'errmsg': '发送短信过于频繁'})
+        # redis_connection = get_redis_connection('verify_code')
+        # send_flag = redis_connection.get('send_flag_%s' % mobile)
+        # if send_flag:
+        #     return http.JsonResponse({'code': RETCODE.THROTTLINGERR,
+        #                               'errmsg': '发送短信过于频繁'})
 
         # 4.提取图形验证码
         image_code_server = redis_connection.get('img_%s' % uuid)

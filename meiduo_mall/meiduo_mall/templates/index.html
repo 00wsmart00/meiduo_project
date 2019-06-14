@@ -16,19 +16,17 @@
 		<div class="header">
 			<div class="welcome fl">欢迎来到美多商城!</div>
 			<div class="fr">
-                {% if user.is_authenticated %}
-            <div class="login_btn fl">
-                            欢迎您：<em>{{ user.username }}</em>
-                <span>|</span>
-               <a href="{{ url('users:logout') }}">退出</a>
-            </div>
-                {% else %}
-            <div class="login_btn fl">
-                <a href="/login">登录</a>
-                <span>|</span>
-                <a href="register.html">注册</a>
-            </div>
-                {% endif %}
+                <div v-if="username" class="login_btn fl">
+                    欢迎您：<em>[[ username ]]</em>
+                    <span>|</span>
+                    <!--修改如下代码,使其能够退出登录-->
+                    <a href="{{ url('users:logout') }}">退出</a>
+                </div>
+                <div v-else class="login_btn fl">
+                    <a href="{{ url('users:login') }}">登录</a>
+                    <span>|</span>
+                    <a href="{{ url('users:register') }}">注册</a>
+                </div>
 				<div class="user_link fl">
 					<span>|</span>
 					<a href="{{ url('users:info') }}">用户中心</a>

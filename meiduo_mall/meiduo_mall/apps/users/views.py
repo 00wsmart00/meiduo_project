@@ -2,28 +2,29 @@ import re
 
 from django import http
 from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.decorators import login_required
 from django.db import DatabaseError
 from django.shortcuts import render, redirect
-
 # Create your views here.
 from django.urls import reverse
 from django.views import View
 from django_redis import get_redis_connection
 
-from users.models import User
 from meiduo_mall.utils.response_code import RETCODE
+from users.models import User
+from users.utils import LoginRequired
 
 
-class UserInfoView(View):
+class UserInfoView(LoginRequired, View):
     """用户中心"""
-    def get(self,request):
+
+    def get(self, request):
         """提供个人中心界面"""
         return render(request, 'user_center_info.html')
 
 
 class LogoutView(View):
     """退出登录"""
+
     def get(self, request):
         """实现退出的逻辑"""
 
@@ -42,7 +43,8 @@ class LogoutView(View):
 
 class LoginView(View):
     """用户名登陆"""
-    def get(self,request):
+
+    def get(self, request):
         """提供登陆界面"""
 
         return render(request, 'login.html')
@@ -56,19 +58,18 @@ class LoginView(View):
 
         # 2.校验参数
         # 整体
-        if not all([username,password,remembered]):
+        if not all([username, password, remembered]):
             return http.HttpResponseForbidden('缺少必传参数')
         # 单个
-        if not re.match(r'^[a-zA-Z0-9_-]{5,20}$',username):
+        if not re.match(r'^[a-zA-Z0-9_-]{5,20}$', username):
             return http.HttpResponseForbidden('请输入正确的用户名或手机号')
-        if not re.match(r'^[0-9A-Za-z]{8,20}$',password ):
+        if not re.match(r'^[0-9A-Za-z]{8,20}$', password):
             return http.HttpResponseForbidden('密码最少8位,最长20位')
 
         # 3.获取登陆用户,并查看是否存在
-        # TODO:已经重写模型类,导入时出现问题
-        user = authenticate(username=username,password=password)
+        user = authenticate(username=username, password=password)
         if user is None:
-            return render(request,'login.html',{'account_errmsg': '用户名或密码错误'})
+            return render(request, 'login.html', {'account_errmsg': '用户名或密码错误'})
 
         # 4.实现状态保持
         login(request, user)
@@ -79,9 +80,12 @@ class LoginView(View):
         else:
             # 记住用户,两周后过期
             request.session.set_expiry(None)
-
-        response = redirect(reverse('contents:index'))
-        response.set_cookie('username', user.username,max_age=3600*24*15)
+        next = request.GET.get('next')
+        if next:
+            response = redirect(next)
+        else:
+            response = redirect(reverse('contents:index'))
+        response.set_cookie('username', user.username, max_age=3600 * 24 * 15)
 
         # 5.返回响应
         return response
@@ -97,7 +101,7 @@ class MobileCountView(View):
         :return: Json
         """
         # 数据库去查询
-        count = User.objects.filter(username=mobile).count()
+        count = User.objects.filter(mobile=mobile).count()
 
         # 返回
         return http.JsonResponse({
@@ -197,8 +201,7 @@ class RegisterView(View):
         login(request, user)
 
         response = redirect(reverse('contents:index'))
-        response.set_cookie('username',user.username,max_age=3600*24*15)
+        response.set_cookie('username', user.username, max_age=3600 * 24 * 15)
 
         # 响应注册结果
         return response
-

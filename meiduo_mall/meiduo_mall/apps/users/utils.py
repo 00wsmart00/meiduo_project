@@ -1,6 +1,7 @@
 import re
 
 from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.decorators import login_required
 
 from users.models import User
 
@@ -26,7 +27,8 @@ def get_user_by_account(account):
 
 class UsernameMobileAuthBackend(ModelBackend):
     """自定义用户认证后端"""
-    def authenticate(self,request,username=None, password=None, **kwargs):
+
+    def authenticate(self, request, username=None, password=None, **kwargs):
         """
         重写认证方法,实现用户名和mobile的登录
         :param request: 请求对象
@@ -41,3 +43,14 @@ class UsernameMobileAuthBackend(ModelBackend):
         if user and user.check_password(password):
             return user
 
+
+class LoginRequired(object):
+    """验证用户是否登陆的工具类"""
+
+    # 重写该函数:
+    @classmethod
+    def as_view(cls, **initkwargs):
+        # 调用父类的 as_view() 方法
+        view = super().as_view()
+        # 添加装饰行为:
+        return login_required(view)
