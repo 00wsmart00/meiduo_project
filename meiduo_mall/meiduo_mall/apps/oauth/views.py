@@ -69,6 +69,7 @@ class QQUserView(View):
 
             # 返回响应
             return response
+
     def post(self,request):
         # 接受参数
         mobile = request.POST.get('mobile')
@@ -133,9 +134,6 @@ class QQUserView(View):
 
         # 响应
         return response
-
-
-
 
 
 class QQURLView(View):

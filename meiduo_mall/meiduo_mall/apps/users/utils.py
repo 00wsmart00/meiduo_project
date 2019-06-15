@@ -1,8 +1,10 @@
 import re
 
+from django import http
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.decorators import login_required
 
+from meiduo_mall.utils.response_code import RETCODE
 from users.models import User
 
 
@@ -54,3 +56,40 @@ class LoginRequired(object):
         view = super().as_view()
         # 添加装饰行为:
         return login_required(view)
+
+# 自定义返回Json的login_required装饰器
+
+
+from django.utils.decorators import wraps
+
+
+def login_required_json(view_func):
+    """
+    判断用户是否登录的装饰器，返回json
+    :param view_func:被装饰的视图函数
+    :return:json、view_func
+    """
+    @wraps(view_func)
+    def wrapper(request,*args,**kwargs):
+        # 如果主用户没有登录，返回json数据
+        if not request.user.is_authenticated():
+            return http.JsonResponse({
+                'code':RETCODE.SESSIONERR,
+                'errmsg':'用户登录'
+            })
+        else:
+            # 登录的话，进入到view_func中，
+            return view_func(request,*args,**kwargs)
+
+    return wrapper
+
+
+class LoginRequiredJSONMixin(object):
+    """验证用户是否登录并返回json的扩展类"""
+    @classmethod
+    def as_view(cls):
+        view = super().as_view()
+        return login_required_json(view)
+
+
+

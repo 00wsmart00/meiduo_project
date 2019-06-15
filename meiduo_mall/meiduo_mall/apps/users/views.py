@@ -1,3 +1,4 @@
+import json
 import re
 
 from django import http
@@ -11,7 +12,70 @@ from django_redis import get_redis_connection
 
 from meiduo_mall.utils.response_code import RETCODE
 from users.models import User
-from users.utils import LoginRequired
+from users.utils import LoginRequired, LoginRequiredJSONMixin
+import logging
+
+logger = logging.getLogger('django')
+
+
+class VerifyEmailView(View):
+    """验证邮箱"""
+    def get(self,request):
+        # 1.接受参数
+        token = request.GET.get('token')
+        # 2.校验参数
+        if not token:
+            return http.HttpResponseForbidden('缺少必传参数')
+        # 4.解密token
+        user = User.check_email_token(token)
+        # 5.验证user
+        if not user:
+            return http.HttpResponseForbidden('无效的token')
+        # 6.更新邮箱验证状态字段email_active
+        try:
+            user.email_active = True
+            user.save()
+        except Exception as e:
+            logger.error(e)
+            return http.HttpResponseForbidden('激活邮件失败')
+        # 7.返回
+        return redirect(reverse('users:info'))
+
+
+
+
+class EmailView(LoginRequiredJSONMixin, View):
+    """添加邮箱"""
+    def put(self,request):
+        """实现添加邮箱的逻辑"""
+        # 1.接受参数
+        json_dict = json.loads(request.body.decode())
+        email = json_dict.get('email')
+        # 2.校验参数
+        if not email:
+            return http.HttpResponseForbidden('缺少必传参数')
+        if not re.match(r'^[a-z0-9][\w\.\-]*@[a-z0-9\-]+(\.[a-z]{2,5}){1,2}$', email):
+            return http.HttpResponseForbidden('参数email有误')
+        # 3.更新
+        try:
+            request.user.email = email
+            request.user.save()
+        except Exception as e:
+            logger.error(e)
+            return http.JsonResponse({
+                'code':RETCODE.DBERR,
+                'errmsg':'添加邮箱失败'
+            })
+        # 发送邮件
+        from celery_tasks.email.tasks import send_verify_email
+        # 异步发送电子邮件
+        verify_url = request.user.generate_verify_email_url()
+        send_verify_email.delay(email, verify_url)
+        # 4.响应
+        return http.JsonResponse({
+            'code': RETCODE.OK,
+            'errmsg': 'ok'
+        })
 
 
 class UserInfoView(LoginRequired, View):
@@ -19,7 +83,14 @@ class UserInfoView(LoginRequired, View):
 
     def get(self, request):
         """提供个人中心界面"""
-        return render(request, 'user_center_info.html')
+
+        context = {
+            'username': request.user.username,
+            'mobile': request.user.mobile,
+            'email': request.user.email,
+            'email_active': request.user.email_active
+        }
+        return render(request, 'user_center_info.html',  context=context)
 
 
 class LogoutView(View):
@@ -58,7 +129,7 @@ class LoginView(View):
 
         # 2.校验参数
         # 整体
-        if not all([username, password, remembered]):
+        if not all([username, password]):
             return http.HttpResponseForbidden('缺少必传参数')
         # 单个
         if not re.match(r'^[a-zA-Z0-9_-]{5,20}$', username):
@@ -205,3 +276,6 @@ class RegisterView(View):
 
         # 响应注册结果
         return response
+
+
+
