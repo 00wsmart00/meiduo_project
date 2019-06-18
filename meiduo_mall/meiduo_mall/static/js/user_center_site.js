@@ -43,7 +43,7 @@ var vm = new Vue({
         // 监听到省份id变化
         'form_address.province_id': function(){
             if (this.form_address.province_id) {
-                var url = this.host + '/areas/' + this.form_address.province_id + '/';
+                let url = this.host + '/areas/' + this.form_address.province_id + '/';
                 axios.get(url, {
                     responseType: 'json'
                 })

@@ -39,7 +39,9 @@ INSTALLED_APPS = [
     'users',  # 用户模块应用
     'oauth',  # QQ登录模块
     'corsheaders',
-
+    'areas',
+    'contents',
+    'goods',
 ]
 
 MIDDLEWARE = [
@@ -223,7 +225,6 @@ QQ_CLIENT_ID = '101518219'
 QQ_CLIENT_SECRET = '418d84ebdc7241efb79536886ae95224'
 QQ_REDIRECT_URI = 'http://www.meiduo.site:8000/oauth_callback'
 
-
 # 添加 django-cors-headers 的白名单, 使白名单中的 host 可以进行跨域请求
 CORS_ORIGIN_WHITELIST = (
     # 白名单:
@@ -244,7 +245,6 @@ CORS_ORIGIN_WHITELIST = (
 )
 # 允许白名单中的 host 跨域请求时携带 cookie
 CORS_ALLOW_CREDENTIALS = True
-
 
 # 发送邮件的相关设置, 这些设置是当用户没有发送相关字段时, 默认使用的内容:
 # 发送邮件必须进行的设置:
