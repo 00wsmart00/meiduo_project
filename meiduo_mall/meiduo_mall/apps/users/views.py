@@ -3,6 +3,7 @@ import re
 
 from django import http
 from django.contrib.auth import login, authenticate, logout
+
 from django.db import DatabaseError
 from django.shortcuts import render, redirect
 # Create your views here.
@@ -10,7 +11,9 @@ from django.urls import reverse
 from django.views import View
 from django_redis import get_redis_connection
 
+from goods.models import SKU
 from meiduo_mall.utils.response_code import RETCODE
+
 from users.models import User, Address
 from users.utils import LoginRequired, LoginRequiredJSONMixin
 import logging
@@ -18,25 +21,84 @@ import logging
 logger = logging.getLogger('django')
 
 
-class ChangePasswordView(LoginRequired,View):
-    def get(self,request):
-        """展示修改密码界面"""
-        return render(request,'user_center_pass.html')
+class UserBrowseHistory(LoginRequiredJSONMixin, View):
+    """用户浏览记录"""
 
-    def post(self,request):
+    def post(self, request):
+        """保存用户浏览记录"""
+        # 接收参数
+        json_dict = json.loads(request.body.decode())
+        sku_id = json_dict.get('sku_id')
+
+        # 校验参数:
+        try:
+            SKU.objects.get(id=sku_id)
+        except SKU.DoesNotExist:
+            return http.HttpResponseForbidden('sku不存在')
+
+        # 保存用户浏览数据
+
+        redis_conn = get_redis_connection('history')
+        pl = redis_conn.pipeline()
+        user_id = request.user.id
+
+        # 先去重:这里给0代表去除所有的sku_id
+        pl.lrem('history_%s' % user_id, 0, sku_id)
+        # 再存储
+        pl.lpush('history_%s' % user_id, sku_id)
+        # 执行管道
+        pl.execute()
+
+        # 响应结果
+        return http.JsonResponse({
+            'code': RETCODE.OK,
+            'errmsg': 'ok'
+
+        })
+
+    def get(self, request):
+        """获取用户浏览记录"""
+        # 获取redis存储的sku_id的列表信息
+        redis_conn = get_redis_connection('history')
+        sku_ids = redis_conn.lrange('history_%s' % request.user.id, 0, -1)
+
+        # 根据sku_id列表数据,查询出商品sku信息
+        skus = []
+        for sku_id in sku_ids:
+            sku = SKU.objects.get(id=sku_id)
+            skus.append(
+                {
+                    'id': sku.id,
+                    'name': sku.name,
+                    'default_image_url': sku.default_image_url,
+                    'price': sku.price
+                }
+            )
+        return http.JsonResponse({
+            'code': RETCODE.OK,
+            'errmsg': 'OK', 'skus': skus
+        })
+
+
+class ChangePasswordView(LoginRequired, View):
+    def get(self, request):
+        """展示修改密码界面"""
+        return render(request, 'user_center_pass.html')
+
+    def post(self, request):
         """实现修改密码逻辑"""
         # 1.接收参数
         old_password = request.POST.get('old_password')
         new_password = request.POST.get('new_password')
         new_password2 = request.POST.get('new_password2')
         # 2.校验参数
-        if not all([old_password,new_password,new_password2]):
+        if not all([old_password, new_password, new_password2]):
             return http.HttpResponseForbidden('缺少必传参数')
         try:
             request.user.check_password(old_password)
         except Exception as e:
             logger.error(e)
-            return render(request, 'user_center_pass.html', {'origin_pwd_errmsg':'原始密码错误'})
+            return render(request, 'user_center_pass.html', {'origin_pwd_errmsg': '原始密码错误'})
         if not re.match(r'^[0-9A-Za-z]{8,20}$', new_password):
             return http.HttpResponseForbidden('密码最少8位，最长20位')
         if new_password != new_password2:
@@ -48,7 +110,7 @@ class ChangePasswordView(LoginRequired,View):
             request.user.save()
         except Exception as e:
             logger.error(e)
-            return render(request,'user_center_pass.html',  {'change_pwd_errmsg': '修改密码失败'})
+            return render(request, 'user_center_pass.html', {'change_pwd_errmsg': '修改密码失败'})
         # 4.清理状态保持信息
         logout(request)
         response = redirect(reverse('users:login'))
@@ -57,9 +119,10 @@ class ChangePasswordView(LoginRequired,View):
         return response
 
 
-class UpdateTitleAddressView(LoginRequiredJSONMixin,View):
+class UpdateTitleAddressView(LoginRequiredJSONMixin, View):
     """设置地址标题"""
-    def put(self,request,address_id):
+
+    def put(self, request, address_id):
         # 1.接收参数,地址标题
         json_dict = json.loads(request.body.decode())
         title = json_dict.get('title')
@@ -72,8 +135,8 @@ class UpdateTitleAddressView(LoginRequiredJSONMixin,View):
             address.save()
         except Exception as e:
             http.JsonResponse({
-                'code':RETCODE.DBERR,
-                'errmsg':'设置地址标题失败'
+                'code': RETCODE.DBERR,
+                'errmsg': '设置地址标题失败'
             })
         # 4.响应
         return http.JsonResponse({
@@ -81,10 +144,10 @@ class UpdateTitleAddressView(LoginRequiredJSONMixin,View):
             'errmsg': '设置地址标题成功'
         })
 
-
-class DefaultAddressView(LoginRequiredJSONMixin,View):
+class DefaultAddressView(LoginRequiredJSONMixin, View):
     """设置默认地址"""
-    def put(self,request,address_id):
+
+    def put(self, request, address_id):
         try:
             # 1.接收参数
             address = Address.objects.get(id=address_id)
@@ -94,15 +157,14 @@ class DefaultAddressView(LoginRequiredJSONMixin,View):
         except Exception as e:
             logger.error(e)
             return http.JsonResponse({
-                'code':RETCODE.DBERR,
+                'code': RETCODE.DBERR,
                 'errmsg': '设置默认地址失败'
             })
         # 3.响应设置默认地址结果
         return http.JsonResponse({
-            'code':RETCODE.OK,
+            'code': RETCODE.OK,
             'errmsg': 'ok'
         })
-
 
 class UpdateDestroyAddressView(LoginRequiredJSONMixin, View):
     """修改和删除地址"""
@@ -194,7 +256,6 @@ class UpdateDestroyAddressView(LoginRequiredJSONMixin, View):
             'errmsg': '删除地址成功'
         })
 
-
 class CreateAddressView(LoginRequiredJSONMixin, View):
     """新增地址"""
 
@@ -276,7 +337,6 @@ class CreateAddressView(LoginRequiredJSONMixin, View):
 
         })
 
-
 class AddressView(LoginRequired, View):
     """用户收货地址展示"""
 
@@ -318,7 +378,6 @@ class AddressView(LoginRequired, View):
 
         return render(request, 'user_center_site.html', context)
 
-
 class VerifyEmailView(View):
     """验证邮箱"""
 
@@ -342,7 +401,6 @@ class VerifyEmailView(View):
             return http.HttpResponseForbidden('激活邮件失败')
         # 7.返回
         return redirect(reverse('users:info'))
-
 
 class EmailView(LoginRequiredJSONMixin, View):
     """添加邮箱"""
@@ -378,7 +436,6 @@ class EmailView(LoginRequiredJSONMixin, View):
             'errmsg': 'ok'
         })
 
-
 class UserInfoView(LoginRequired, View):
     """用户中心"""
 
@@ -392,7 +449,6 @@ class UserInfoView(LoginRequired, View):
             'email_active': request.user.email_active
         }
         return render(request, 'user_center_info.html', context=context)
-
 
 class LogoutView(View):
     """退出登录"""
@@ -411,7 +467,6 @@ class LogoutView(View):
 
         # 返回响应
         return response
-
 
 class LoginView(View):
     """用户名登陆"""
@@ -462,7 +517,6 @@ class LoginView(View):
         # 5.返回响应
         return response
 
-
 class MobileCountView(View):
     """判断手机号是否被注册"""
 
@@ -481,7 +535,6 @@ class MobileCountView(View):
             'errmsg': 'ok',
             'count': count
         })
-
 
 class UsernameCountView(View):
     """判断用户名是否重复注册"""
@@ -502,7 +555,6 @@ class UsernameCountView(View):
             'errmsg': 'ok',
             'count': count
         })
-
 
 class RegisterView(View):
     """用户注册"""

@@ -62,8 +62,6 @@ var vm = new Vue({
 
 
 
-
-
 // $(function () {
 //
 //     // 获取并展示购物车数据

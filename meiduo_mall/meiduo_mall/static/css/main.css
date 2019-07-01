@@ -891,7 +891,7 @@ html,body{height:100%}
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
-.order_goods_list .col02 em{color:#999;margin-left:10px;float: left;}
+.order_goods_list .col02 em{color:#999;margin-left:2px;float: left;}
 .order_goods_list .col03{width:10%}
 .order_goods_list .col04{width:20%}
 

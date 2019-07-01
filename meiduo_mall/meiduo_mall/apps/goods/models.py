@@ -11,7 +11,7 @@ class GoodsCategory(BaseModel):
     # 分类的名称
     name = models.CharField(max_length=10, verbose_name='名称')
     # 分类的上级id (分类一共有三级)
-    parent = models.ForeignKey('self',null=True, blank=True,on_delete=models.CASCADE, verbose_name='父类别')
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, verbose_name='父类别')
 
     # 设置分类表的属性
     class Meta:
@@ -75,15 +75,21 @@ class Goods(BaseModel):
     # 这组商品的品牌
     brand = models.ForeignKey(Brand, on_delete=models.PROTECT, verbose_name='品牌')
     # 这组商品的一级分类
-    category1 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat1_goods', verbose_name='一级类别')
+    category1 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat1_goods',
+                                  verbose_name='一级类别')
     # 这组商品的二级分类
-    category2 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat2_goods', verbose_name='二级类别')
+    category2 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat2_goods',
+                                  verbose_name='二级类别')
     # 这组商品的三级分类
-    category3 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat3_goods', verbose_name='三级类别')
+    category3 = models.ForeignKey(GoodsCategory, on_delete=models.PROTECT, related_name='cat3_goods',
+                                  verbose_name='三级类别')
     # 这组商品的销量数
     sales = models.IntegerField(default=0, verbose_name='销量')
     # 这组商品的评价数
     comments = models.IntegerField(default=0, verbose_name='评价数')
+    desc_detail = models.CharField(max_length=50, default='', verbose_name='详情')
+    desc_pack = models.CharField(max_length=50, default='', verbose_name='包装')
+    desc_service = models.CharField(max_length=50, default='', verbose_name='服务')
 
     class Meta:
         db_table = 'tb_goods'
@@ -204,3 +210,17 @@ class SKUSpecification(BaseModel):
 
     def __str__(self):
         return '%s: %s - %s' % (self.sku, self.spec.name, self.option.value)
+
+
+class GoodsVisitCount(BaseModel):
+    """统计分类商品的访问量"""
+    category = models.ForeignKey(GoodsCategory,
+                                 on_delete=models.CASCADE,
+                                 verbose_name='商品分类')
+    count = models.IntegerField(verbose_name='访问量', default=0)
+    date = models.DateField(auto_now_add=True, verbose_name='统计日期')
+
+    class Meta:
+        db_table = 'tb_goods_visit'
+        verbose_name = '统计分类商品访问量'
+        verbose_name_plural = verbose_name
